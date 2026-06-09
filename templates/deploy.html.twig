@@ -1,0 +1,792 @@
+<div class="adm-page">
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
+  <div class="d-flex gap-3 flex-wrap">
+
+    {# == 左栏：包管理 + 新建任务 == #}
+    <div class="adm-content" style="flex:1 1 58%;min-width:380px">
+
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+          <h5 class="mb-0"><i class="ti ti-package me-1"></i>安装包库（{{ packages|length }}）</h5>
+          {% if can_write %}
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#uploadForm">
+                <i class="ti ti-upload me-1"></i>上传
+              </button>
+              <a href="/plugins/admanager/front/deploy_config.php" class="btn btn-sm btn-outline-secondary">
+                <i class="ti ti-settings me-1"></i>部署设置
+              </a>
+            </div>
+          {% endif %}
+        </div>
+
+        {% if can_write %}
+        <div class="collapse" id="uploadForm">
+          <div class="card-body border-bottom bg-white">
+            <form method="post" enctype="multipart/form-data" id="uploadPackageForm">
+              <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="_action" value="upload_package">
+              <div class="mb-2">
+                <label class="form-label small fw-bold">软件名称 *</label>
+                <input type="text" name="pkg_name" class="form-control form-control-sm" required placeholder="Chrome">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small fw-bold">版本号 *</label>
+                <input type="text" name="pkg_version" class="form-control form-control-sm" required placeholder="124.0">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small fw-bold">静默安装参数</label>
+                <input type="text" name="silent_args" class="form-control form-control-sm" placeholder="/S 或 /qn /norestart">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small fw-bold">描述</label>
+                <input type="text" name="pkg_desc" class="form-control form-control-sm">
+              </div>
+              <div class="mb-3">
+                <label class="form-label small fw-bold">安装包文件 *（最大 500MB）</label>
+                <input type="file" name="package" class="form-control form-control-sm" required
+                       accept=".exe,.msi,.msp,.zip">
+              </div>
+              <button type="submit" id="uploadBtn" class="btn btn-sm btn-success w-100">
+                <i class="ti ti-cloud-upload me-1"></i>开始上传
+              </button>
+              <div id="uploadProgress" class="mt-2 d-none">
+                <div class="progress">
+                  <div id="uploadBar" class="progress-bar progress-bar-striped progress-bar-animated"></div>
+                </div>
+                <div class="small text-muted mt-1 text-center">
+                  <span id="uploadPercent">0%</span> · 
+                  <span id="uploadSpeed">—</span>
+                </div>
+              </div>
+              <div id="uploadMsg" class="mt-2 d-none"></div>
+                            </div>
+            </form>
+          </div>
+        {% endif %}
+
+        <div>
+          {% if packages is empty %}
+            <div class="text-center text-muted py-3 small">暂无安装包，请先上传</div>
+          {% else %}
+            <div class="ad-table-wrap">
+<table class="table adm-table table-sm table-hover mb-0 align-middle">
+              <tbody>
+              {% for pkg in packages %}
+              <tr class="pkg-item" data-id="{{ pkg.id }}" data-name="{{ pkg.name }}" data-ver="{{ pkg.version }}"
+                  data-silent="{{ pkg.silent_args|default(pkg.silent|default('')) }}" data-desc="{{ pkg.description|default('') }}"
+                  data-filename="{{ pkg.filename }}" data-size="{{ (pkg.file_size / 1048576)|round(1) }}">
+                <td>
+                  <span class="fw-bold small">{{ pkg.name }}</span>
+                  <span class="badge bg-secondary ms-1">{{ pkg.version }}</span>
+                  {% if pkg.description %}
+                    <br><small class="text-muted">{{ pkg.description }}</small>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">{{ pkg.filename }}<br>{{ (pkg.file_size / 1048576)|round(1) }} MB</td>
+                {% if can_write %}
+                <td class="text-end">
+                  <button type="button" class="btn btn-xs btn-outline-primary pkg-edit-btn"
+                          title="编辑" data-id="{{ pkg.id }}" data-name="{{ pkg.name }}"
+                          data-ver="{{ pkg.version }}" data-silent="{{ pkg.silent_args|default(pkg.silent|default('')) }}"
+                          data-desc="{{ pkg.description|default('') }}">
+                    <i class="ti ti-pencil"></i>
+                  </button>
+                  <form method="post"
+                        onsubmit="return confirm('确定删除安装包 {{ pkg.name|e('js') }} {{ pkg.version|e('js') }}？
+磁盘文件也将一并删除，此操作不可恢复。')">
+                    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="_action" value="delete_package">
+                    <input type="hidden" name="pkg_id" value="{{ pkg.id }}">
+                    <button type="submit" class="btn btn-xs btn-outline-danger" title="删除">
+                      <i class="ti ti-trash"></i>
+                    </button>
+                  </form>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if can_write %}
+      <div class="card">
+        <div class="card-header py-2"><h6 class="mb-0"><i class="ti ti-send me-1"></i>新建部署任务</h6></div>
+        <div class="card-body py-2">
+          <form method="post" id="createTaskForm">
+            <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="_action" value="create_task">
+            <div class="mb-2">
+              <label class="form-label small fw-bold">任务名称 *</label>
+              <input type="text" name="task_name" id="task_name" class="form-control form-control-sm" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-bold">安装包 *</label>
+              <select name="package_id" class="form-select form-select-sm" required>
+                <option value="">— 选择安装包 —</option>
+                {% for pkg in packages %}
+                  <option value="{{ pkg.id }}">{{ pkg.name }} {{ pkg.version }}</option>
+                {% endfor %}
+              </select>
+            </div>
+{# tom-select CSS #}
+
+            <div class="mb-2">
+              <label class="form-label small fw-bold">推送目标</label>
+              <select name="target_type" class="form-select form-select-sm" id="targetType">
+                <option value="all">全部终端</option>
+                <option value="group"> 按分组</option>
+                <option value="client"> 指定终端</option>
+              </select>
+            </div>
+
+            {# 分组选择 #}
+            <div class="mb-2 d-none" id="groupSelect">
+              <label class="form-label small fw-bold">选择分组</label>
+              {% if groups is empty %}
+                <div class="alert alert-warning py-1 px-2 small mb-1">
+                  暂无分组，请先在
+                  <a href="/plugins/admanager/front/groups.php" target="_blank">分组管理</a>
+                  中创建
+                </div>
+              {% endif %}
+              <select id="groupSelectInput" name="target_id" class="form-select form-select-sm">
+                <option value=""></option>
+                {% for g in groups %}
+                  <option value="{{ g.id }}">{{ g.name }}
+                    {% if g.client_count > 0 %}（{{ g.client_count }} 台）{% endif %}
+                    {% if g.description %} · {{ g.description }}{% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            {# 单台终端选择 #}
+            <div class="mb-2 d-none" id="clientSelect">
+              <label class="form-label small fw-bold">选择终端</label>
+              <select id="clientSelectInput" name="target_id" class="form-select form-select-sm">
+                <option value=""></option>
+                {% for c in clients %}
+                  <option value="{{ c.client_id }}"
+                          data-sn="{{ c.serial|slice(0,24) }}">
+                    {{ c.hostname }}｜{{ c.serial|slice(0,20) }}…
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-bold">超时（秒）</label>
+              <input type="number" name="timeout" class="form-control form-control-sm" value="{{ deploy_config.default_timeout|default(600) }}" min="60" max="7200">
+            </div>
+            <div class="mb-3 d-flex gap-3 flex-wrap">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="interactive" value="1"
+                       id="interactive" checked>
+                <label class="form-check-label small" for="interactive">弹窗确认 <span class="text-muted fw-normal">（继承默认值）</span></label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="need_reboot" value="1" id="need_reboot">
+                <label class="form-check-label small" for="need_reboot">安装后重启</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="silent_override" value="1" id="silent_override">
+                <label class="form-check-label small" for="silent_override">静默覆盖</label>
+              </div>
+            </div>
+            {# 交互配置（弹窗确认开启时显示）- 默认值继承自部署设置页面 #}
+            <div id="interactiveConfig" class="border rounded p-2 mb-2">
+              <div class="small text-muted">
+                <i class="ti ti-info-circle me-1"></i>
+                弹窗标题/内容/推迟参数继承自
+                <a href="/plugins/admanager/front/deploy_config.php" target="_blank" class="text-primary fw-bold">
+                  部署设置 <i class="ti ti-external-link"></i>
+                </a>
+                ，可在该页面统一修改，任务创建后将自动应用
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="ti ti-player-play me-1"></i>创建并推送
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    {# == 右栏：任务列表 == #}
+    <div class="adm-content" style="flex:1 1 38%;min-width:320px">
+      <div class="card mb-2">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+          <h5 class="mb-0"><i class="ti ti-list-check me-1"></i>部署任务（最近 30 条）</h5>
+          <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+            <i class="ti ti-refresh me-1"></i>刷新
+          </button>
+        </div>
+        {% if tasks is empty %}
+          <div class="card-body text-muted text-center py-4">暂无部署任务</div>
+        {% else %}
+        <div class="table-responsive">
+          <div class="ad-table-wrap">
+<table class="table adm-table table-hover table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>任务名称</th><th>安装包</th><th>目标</th>
+                <th>进度</th><th>状态</th><th>创建时间</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in tasks %}
+              {% set prog = t.progress %}
+              <tr>
+                <td>
+                  <a href="#" class="fw-bold text-decoration-none task-detail-btn"
+                     data-id="{{ t.id }}" data-name="{{ t.name }}">
+                    {{ t.name }}
+                  </a>
+                </td>
+                <td class="small">
+                  {% if t.task_type == 'uninstall' %}
+                    <span class="badge bg-warning text-dark">卸载</span>
+                    {{ t.uninstall_target }}
+                  {% else %}
+                    {{ t.package_name }} <span class="text-muted">{{ t.package_version }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if t.target_type == 'all' %}
+                    <span class="badge bg-primary">全部</span>
+                  {% elseif t.target_type == 'group' %}
+                    <span class="badge bg-info text-dark" title="分组部署">������ 分组</span>
+                  {% elseif t.target_type == 'client' %}
+                    <span class="badge bg-secondary">单台</span>
+                    {% if t.target_name %}<span class="small ms-1 fw-semibold">{{ t.target_name }}</span>{% endif %}
+                  {% else %}
+                    <span class="badge bg-secondary">{{ t.target_type }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="progress">
+                    <div class="progress-bar bg-success" style="width:{{ prog.total > 0 ? (prog.success / prog.total * 100)|round : 0 }}%"></div>
+                    <div class="progress-bar bg-danger"  style="width:{{ prog.total > 0 ? (prog.failed  / prog.total * 100)|round : 0 }}%"></div>
+                  </div>
+                  <small class="text-muted">
+                    OK:{{ prog.success }} ERR:{{ prog.failed }}
+                    {% if prog.pending > 0 %}WAIT:{{ prog.pending }}{% endif %}
+                    {% if prog.deferred > 0 %}DEFER:{{ prog.deferred }}{% endif %}
+                    / {{ prog.total }}
+                  </small>
+                </td>
+                <td>
+                  {% if t.status == 'active' %}
+                    <span class="badge bg-success">进行中</span>
+                  {% elseif t.status == 'completed' and (prog.failed ?? 0) > 0 %}
+                    <span class="badge bg-warning text-dark">部分失败</span>
+                  {% elseif t.status == 'completed' %}
+                    <span class="badge bg-info">已完成</span>
+                  {% elseif t.status == 'cancelled' %}
+                    <span class="badge bg-secondary">已取消</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ t.status }}</span>
+                  {% endif %}
+                </td>
+                <td class="small text-muted">
+                  {{ t.created_at ? t.created_at|slice(0,16)|replace({'T':' '}) : '—' }}
+                </td>
+                <td>
+                  <div class="btn-group btn-group-xs">
+                  {% if can_write and t.status == 'active' %}
+                  <form method="post"
+                        onsubmit="return confirm('确定取消任务 {{ t.name|e('js') }}？')">
+                    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="_action" value="cancel_task">
+                    <input type="hidden" name="task_id" value="{{ t.id }}">
+                    <button type="submit" class="btn btn-xs btn-outline-secondary" title="取消任务">
+                      <i class="ti ti-circle-x"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                  {% if can_write and prog.failed > 0 %}
+                  <form method="post"
+                        onsubmit="return confirm('重置失败记录？')">
+                    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="_action" value="reset_failed">
+                    <input type="hidden" name="task_id" value="{{ t.id }}">
+                    <button type="submit" class="btn btn-xs btn-outline-warning" title="重置失败">
+                      <i class="ti ti-refresh"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                  {% if can_write %}
+                  <form method="post"
+                        onsubmit="return confirm('确定删除任务 {{ t.name|e('js') }}？此操作不可恢复。')">
+                    <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="_action" value="delete_task">
+                    <input type="hidden" name="task_id" value="{{ t.id }}">
+                    <button type="submit" class="btn btn-xs btn-outline-danger" title="删除任务">
+                      <i class="ti ti-trash"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+</div>
+        </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+      {# 客户端部署包下载 #}
+      <div class="card border-success">
+        <div class="card-header py-2">
+          <h6 class="mb-0"><i class="ti ti-download me-1"></i>客户端部署包</h6>
+        </div>
+        <div class="card-body text-center py-3">
+          <p class="small text-muted mb-2">Windows 客户端 v4.3<br>
+          <span class="badge bg-success me-1">WebSocket实时在线</span>
+          <span class="badge bg-info">软件卸载</span></p>
+          <a href="/plugins/admanager/client/ITAsset4_Deploy.zip"
+             class="btn btn-success w-100 mb-2"
+             download="ITAsset4_Deploy.zip">
+            <i class="ti ti-download me-1"></i>下载客户端部署包
+          </a>
+          <div class="small text-muted mt-2">
+            <i class="ti ti-info-circle me-1"></i>解压后运行 <code>部署客户端.bat</code> 安装/更新
+          </div>
+        </div>
+      </div>
+
+
+<div class="modal fade" id="taskDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title" id="taskDetailTitle">任务明细</h5>
+        <div class="ms-auto d-flex gap-2 align-items-center">
+          <span id="taskDetailSummary" class="small text-muted"></span>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+      </div>
+      <div class="modal-body p-0">
+        <div id="taskDetailBody" class="text-center py-4 text-muted">加载中...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 交互配置显隐 ──
+(function(){
+  var cb = document.getElementById('interactive');
+  var cfg = document.getElementById('interactiveConfig');
+  if (cb && cfg) {
+    var toggle = function(){ cfg.style.display = cb.checked ? '' : 'none'; };
+    toggle();
+    cb.addEventListener('change', toggle);
+  }
+})();
+
+// ── 选安装包自动填任务名 ──
+document.querySelectorAll('.pkg-item').forEach(function(el) {
+  el.addEventListener('click', function() {
+    var tn = document.getElementById('task_name');
+    if (tn) tn.value = '部署 ' + el.dataset.name + ' ' + el.dataset.ver;
+    var sel = document.querySelector('select[name=package_id]');
+    if (sel) sel.value = el.dataset.id;
+    document.querySelectorAll('.pkg-item').forEach(function(e){ e.classList.remove('table-active'); });
+    el.classList.add('table-active');
+  });
+});
+
+// ── 目标类型切换 ──
+(function(){
+  var sel = document.getElementById('targetType');
+  if (!sel) return;
+
+  // 初始化 tom-select（懒加载，首次切换时初始化）
+  var tsGroup  = null;
+  var tsClient = null;
+
+  function initTs() {
+    if (!window.TomSelect) return;
+    if (!tsGroup && document.getElementById('groupSelectInput')) {
+      tsGroup = new TomSelect('#groupSelectInput', {
+        placeholder: '搜索分组名称…', allowEmptyOption: true,
+        maxOptions: 200, searchField: ['text'],
+      });
+    }
+    if (!tsClient && document.getElementById('clientSelectInput')) {
+      tsClient = new TomSelect('#clientSelectInput', {
+        placeholder: '搜索主机名或序列号…', allowEmptyOption: true,
+        maxOptions: 500, searchField: ['text','value'],
+      });
+    }
+  }
+
+  function toggle(val) {
+    var gDiv = document.getElementById('groupSelect');
+    var cDiv = document.getElementById('clientSelect');
+    if (gDiv) gDiv.classList.toggle('d-none', val !== 'group');
+    if (cDiv) cDiv.classList.toggle('d-none', val !== 'client');
+    // 清空另一个的值
+    if (val !== 'group'  && tsGroup)  tsGroup.clear();
+    if (val !== 'client' && tsClient) tsClient.clear();
+    if (val === 'group' || val === 'client') {
+      // 动态加载 tom-select JS
+      if (!window.TomSelect) {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js';
+        s.onload = function(){ initTs(); };
+        document.head.appendChild(s);
+      } else {
+        initTs();
+      }
+    }
+  }
+
+  sel.addEventListener('change', function(){ toggle(this.value); });
+  toggle(sel.value);
+})();
+
+// ── 任务明细弹窗 ──
+document.querySelectorAll('.task-detail-btn').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    var id   = btn.dataset.id;
+    var name = btn.dataset.name;
+    document.getElementById('taskDetailTitle').textContent = '任务明细：' + name;
+    document.getElementById('taskDetailBody').innerHTML = '<div class="text-center py-4 text-muted">加载中...</div>';
+    new bootstrap.Modal(document.getElementById('taskDetailModal')).show();
+
+    fetch('?action=targets&task_id=' + id)
+      .then(function(r){ return r.json(); })
+      .then(function(rows) {
+        if (!rows.length) {
+          document.getElementById('taskDetailBody').innerHTML = '<div class="text-center py-4 text-muted">暂无终端执行记录</div>';
+          return;
+        }
+        var badge = function(s) {
+          var map = { pending:'<span class="badge bg-secondary">等待</span>', running:'<span class="badge bg-primary">执行中</span>', success:'<span class="badge bg-success">成功</span>', failed:'<span class="badge bg-danger">失败</span>', deferred:'<span class="badge bg-warning text-dark">推迟</span>' };
+          return map[s] || '<span class="badge bg-light text-dark">' + s + '</span>';
+        };
+        var esc = function(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); };
+        // 统计摘要
+        var total = rows.length;
+        var okCnt = rows.filter(function(r){ return r.status === 'success'; }).length;
+        var failCnt = rows.filter(function(r){ return r.status === 'failed'; }).length;
+        var pendCnt = rows.filter(function(r){ return r.status === 'pending' || r.status === 'running'; }).length;
+        document.getElementById('taskDetailSummary').textContent =
+          '共 ' + total + ' 台 | 成功 ' + okCnt + ' | 失败 ' + failCnt + (pendCnt ? ' | 待执行 ' + pendCnt : '');
+
+        var html = '<div class="table-responsive" style="max-height:60vh;overflow-y:auto">'
+          + '<table class="table table-sm table-hover mb-0 align-top"><thead class="table-light sticky-top"><tr>'
+          + '<th style="width:160px">计算机名</th>'
+          + '<th style="width:80px">状态</th>'
+          + '<th style="width:50px">重试</th>'
+          + '<th style="width:110px">执行时间</th>'
+          + '<th>失败原因</th>'
+          + '<th style="width:60px">日志</th>'
+          + '</tr></thead><tbody>';
+        rows.forEach(function(r) {
+          var isFail = r.status === 'failed';
+          var failMsg = isFail && r.message ? r.message : '';
+          html += '<tr class="' + (isFail ? 'table-danger' : '') + '">'
+            + '<td><strong class="small">' + esc(r.hostname) + '</strong></td>'
+            + '<td>' + badge(r.status) + '</td>'
+            + '<td class="small text-muted text-center">' + (r.retry_count || 0) + '</td>'
+            + '<td class="small text-muted">' + (r.executed_at ? r.executed_at.substring(0,16).replace('T',' ') : '—') + '</td>'
+            + '<td class="small' + (isFail ? ' text-danger fw-semibold' : ' text-muted') + '" style="max-width:500px;word-break:break-all;white-space:pre-wrap">' + esc(failMsg) + '</td>'
+            + '<td>' + (r.install_log
+                ? '<button class="btn btn-xs btn-outline-info log-btn" data-host="' + esc(r.hostname) + '" data-log="' + esc(r.install_log) + '">查看</button>'
+                : '—')
+            + '</td>'
+            + '</tr>';
+        });
+        html += '</tbody></table></div>';
+        document.getElementById('taskDetailBody').innerHTML = html;
+        setTimeout(function() {
+          document.querySelectorAll('.log-btn').forEach(function(b) {
+            b.onclick = function() {
+              var div = document.createElement('div');
+              div.innerHTML = '<div class="modal fade" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">' + esc(this.dataset.host) + ' 执行日志</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><pre style="max-height:500px;overflow:auto;font-size:.75rem;background:#1e1e1e;color:#d4d4d4;padding:1rem;border-radius:4px;white-space:pre-wrap;word-break:break-all">' + esc(this.dataset.log) + '</pre></div></div></div></div>';
+              document.body.appendChild(div);
+              var m = new bootstrap.Modal(div.querySelector('.modal'));
+              m.show();
+              div.querySelector('.modal').addEventListener('hidden.bs.modal', function() { div.remove(); });
+            };
+          });
+        }, 100);
+      })
+      .catch(function() {
+        document.getElementById('taskDetailBody').innerHTML = '<div class="alert alert-danger m-3">加载失败，请稍后重试</div>';
+      });
+  });
+});
+
+// -- Upload Package --
+document.getElementById('uploadPackageForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var btn = document.getElementById('uploadBtn');
+  var bar = document.getElementById('uploadBar');
+  var pct = document.getElementById('uploadPercent');
+  var spd = document.getElementById('uploadSpeed');
+  var progressEl = document.getElementById('uploadProgress');
+  var msgEl = document.getElementById('uploadMsg');
+  var lastLoaded = 0, lastTime = 0;
+  var formData = new FormData(e.target);
+  var xhr = new XMLHttpRequest();
+
+  bar.style.width = '0%';
+  bar.classList.add('progress-bar-animated', 'progress-bar-striped');
+  bar.classList.remove('bg-success', 'bg-danger');
+  pct.textContent = '0%';
+  spd.textContent = 'Preparing...';
+  progressEl.classList.remove('d-none');
+  msgEl.classList.add('d-none');
+  btn.textContent = 'Uploading...';
+  btn.disabled = true;
+
+
+    xhr.upload.addEventListener('progress', function(ev) {
+      if (!ev.lengthComputable) return;
+      var now = Date.now();
+      var p = Math.round(ev.loaded / ev.total * 100);
+      bar.style.width = p + '%';
+      pct.textContent = p + '%';
+      if (now - lastTime > 1000) {
+        var speed = (ev.loaded - lastLoaded) / (now - lastTime) * 1000;
+        spd.textContent = formatSize(speed) + '/s';
+        lastLoaded = ev.loaded;
+        lastTime = now;
+      }
+    });
+
+    xhr.addEventListener('load', function() {
+      // _uploadDbg('xhr.load: HTTP ' + xhr.status + '  长度: ' + xhr.responseText.length + 'B');
+      // _uploadDbg('响应(500字): ' + xhr.responseText.substring(0, 500));
+      bar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+
+      if (xhr.status >= 200 && xhr.status < 400) {
+        try {
+          var resp = JSON.parse(xhr.responseText);
+          if (resp.ok) {
+            bar.classList.add('bg-success');
+            bar.style.width = '100%';
+            pct.textContent = '100%';
+            spd.textContent = '上传成功';
+            btn.innerHTML = '<i class="ti ti-check me-1"></i>上传成功';
+            // 1.5 秒后刷新
+            setTimeout(function(){ location.reload(); }, 1500);
+          } else {
+            bar.classList.add('bg-danger');
+            pct.textContent = '失败';
+            spd.textContent = resp.message || '未知错误';
+            btn.innerHTML = '<i class="ti ti-alert-triangle me-1"></i>重试';
+            btn.disabled = false;
+            showMsg(resp.message || '上传失败', 'danger');
+          }
+        } catch(e) {
+          // 非 JSON 响应（可能是 PHP 错误页）
+          bar.classList.add('bg-danger');
+          pct.textContent = '错误';
+          spd.textContent = '服务器返回异常';
+          btn.innerHTML = '<i class="ti ti-alert-triangle me-1"></i>重试';
+          btn.disabled = false;
+          showMsg('服务器返回异常，请检查 PHP 错误日志', 'danger');
+        }
+      } else {
+        bar.classList.add('bg-danger');
+        pct.textContent = 'HTTP ' + xhr.status;
+        spd.textContent = '请求失败';
+        btn.innerHTML = '<i class="ti ti-alert-triangle me-1"></i>重试';
+        btn.disabled = false;
+        showMsg('HTTP ' + xhr.status + ' 请求失败', 'danger');
+      }
+    });
+
+    xhr.addEventListener('error', function() {
+      // _uploadDbg('xhr.ERROR: 连接失败或网络中断');
+      bar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+      bar.classList.add('bg-danger');
+      pct.textContent = '网络错误';
+      spd.textContent = '连接中断';
+      btn.innerHTML = '<i class="ti ti-alert-triangle me-1"></i>重试';
+      btn.disabled = false;
+      showMsg('网络连接中断，请检查网络后重试', 'danger');
+    });
+
+    xhr.addEventListener('abort', function() {
+      // _uploadDbg('xhr.ABORT: 请求被中止');
+    });
+
+    formData.delete('_glpi_csrf_token'); // 改用 header 传递，避免 CSRF token 消耗
+    var csrfToken = document.querySelector('input[name=_glpi_csrf_token]') 
+        ? document.querySelector('input[name=_glpi_csrf_token]').value : '';
+    // _uploadDbg('xhr.send 开始, 字段: ' + Array.from(formData.keys()).join(', ') + '  CSRF header: ' + csrfToken.substring(0,8) + '...');
+    xhr.open('POST', '/plugins/admanager/ajax/upload_package.php');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.setRequestHeader('X-Glpi-Csrf-Token', csrfToken);
+    xhr.send(formData);
+    // _uploadDbg('xhr.send 已调用');
+  });
+
+  function showMsg(text, type) {
+    var msgEl = document.getElementById('uploadMsg');
+    msgEl.classList.remove('d-none');
+    msgEl.innerHTML = '<div class="alert alert-' + type + ' py-1 px-2 small mb-0">' + text.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>';
+  }
+
+function formatSize(bytes) {
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+}
+</script>
+
+<!-- 编辑安装包弹窗 -->
+<div class="modal fade" id="editPkgModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="ti ti-pencil me-1"></i>编辑安装包</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" id="editPkgForm">
+        <input type="hidden" name="_glpi_csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="_action" value="update_package">
+        <input type="hidden" name="pkg_id" id="edit_pkg_id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">软件名称 *</label>
+            <input type="text" name="pkg_name" id="edit_pkg_name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">版本号 *</label>
+            <input type="text" name="pkg_version" id="edit_pkg_version" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">静默安装参数</label>
+            <input type="text" name="silent_args" id="edit_silent_args" class="form-control"
+                   placeholder="/S 或 /qn /norestart">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">描述</label>
+            <input type="text" name="pkg_desc" id="edit_pkg_desc" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="ti ti-device-floppy me-1"></i>保存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// 编辑按钮点击 → 填充弹窗
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.pkg-edit-btn');
+  if (!btn) return;
+  e.stopPropagation(); // 不触发行点击
+  document.getElementById('edit_pkg_id').value      = btn.dataset.id;
+  document.getElementById('edit_pkg_name').value    = btn.dataset.name;
+  document.getElementById('edit_pkg_version').value = btn.dataset.ver;
+  document.getElementById('edit_silent_args').value = btn.dataset.silent;
+  document.getElementById('edit_pkg_desc').value    = btn.dataset.desc;
+  new bootstrap.Modal(document.getElementById('editPkgModal')).show();
+});
+
+// 删除按钮不触发行点击
+document.addEventListener('click', function(e) {
+  if (e.target.closest('form[onsubmit]') && e.target.closest('.pkg-item')) {
+    e.stopPropagation();
+  }
+});
+</script>
+
+<script>
+(function(){
+  // ── 任务进度自动轮询（5s，有活跃任务时）─────────────────────────────────
+  var POLL_INTERVAL = 5000;
+  var pollTimer = null;
+
+  function hasActiveTasks() {
+    return document.querySelectorAll('[data-task-status="pending"],[data-task-status="running"]').length > 0;
+  }
+
+  function updateTaskRow(task) {
+    var prog = task.progress || {};
+    var total = prog.total || 0;
+    var row = document.querySelector('[data-task-id="' + task.id + '"]');
+    if (!row) return;
+
+    // 进度条
+    var bar = row.querySelector('.progress-bar.bg-success');
+    var barFail = row.querySelector('.progress-bar.bg-danger');
+    if (bar && total > 0) {
+      bar.style.width = Math.round(prog.success / total * 100) + '%';
+      if (barFail) barFail.style.width = Math.round(prog.failed / total * 100) + '%';
+    }
+
+    // 状态文字 / 角标
+    var statusCell = row.querySelector('.task-status-badge');
+    if (statusCell) {
+      var pend = (prog.pending||0) + (prog.running||0);
+      if (pend > 0) {
+        statusCell.innerHTML = '<span class="badge bg-warning text-dark"><i class="ti ti-loader-2 ti-spin"></i> 执行中 ' + pend + '/' + total + '</span>';
+        row.dataset.taskStatus = 'running';
+      } else if ((prog.failed||0) > 0 && (prog.success||0) === 0) {
+        statusCell.innerHTML = '<span class="badge bg-danger">全部失败</span>';
+        row.dataset.taskStatus = 'done';
+      } else if ((prog.failed||0) > 0) {
+        statusCell.innerHTML = '<span class="badge bg-warning text-dark"><i class="ti ti-alert-triangle"></i> 部分失败 ' + (prog.success||0) + '/' + total + '</span>';
+        row.dataset.taskStatus = 'done';
+      } else {
+        statusCell.innerHTML = '<span class="badge bg-success"><i class="ti ti-check"></i> 完成 ' + (prog.success||0) + '/' + total + '</span>';
+        row.dataset.taskStatus = 'done';
+      }
+    }
+  }
+
+  function pollTasks() {
+    if (!hasActiveTasks()) { stopPoll(); return; }
+    fetch(window.location.pathname + '?_ajax=task_progress', {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(tasks){
+      tasks.forEach(updateTaskRow);
+      if (!hasActiveTasks()) stopPoll();
+    })
+    .catch(function(){});
+  }
+
+  function startPoll() {
+    if (pollTimer) return;
+    pollTimer = setInterval(pollTasks, POLL_INTERVAL);
+  }
+
+  function stopPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  if (hasActiveTasks()) startPoll();
+})();
+</script>
+<script src="/plugins/admanager/js/deploy.js"></script>
+

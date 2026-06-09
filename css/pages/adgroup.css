@@ -1,0 +1,30 @@
+/* ============================================
+   adgroup 安全组管理 — 页面专用样式
+   只有安全组页面才会加载此文件
+   ============================================ */
+
+/* ── 安全组列表项 ── */
+.adm-page .group-list .list-group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--adm-space-sm) var(--adm-space-md);
+    border-left: none;
+    border-right: none;
+}
+.adm-page .group-list .list-group-item.active {
+    background: var(--tblr-primary, #dbeafe) !important;
+    color: var(--tblr-primary-fg, #1e3a5f) !important;
+    border-color: var(--tblr-primary-border-subtle, #93c5fd) !important;
+}
+.adm-page .group-list .list-group-item.active .text-muted {
+    color: var(--tblr-secondary, #64748b) !important;
+}
+
+/* ── 成员面板统计 ── */
+.adm-member-panel .adm-member-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--adm-space-sm);
+    margin-bottom: var(--adm-space-md);
+}
