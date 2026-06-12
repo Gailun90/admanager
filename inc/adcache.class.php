@@ -25,14 +25,15 @@ class PluginAdmanagerAdCache
         global $DB;
         $where = ['cache_type' => 'user'];
         if ($keyword) {
-            $esc = $DB->escape($keyword);
-            $where[] = new \QueryExpression(
-                "(sam LIKE '%{$esc}%' OR display_name LIKE '%{$esc}%' OR mail LIKE '%{$esc}%' OR department LIKE '%{$esc}%')"
-            );
+            $where[] = ['OR' => [
+                'sam'            => ['LIKE', "%{$keyword}%"],
+                'display_name'   => ['LIKE', "%{$keyword}%"],
+                'mail'           => ['LIKE', "%{$keyword}%"],
+                'department'     => ['LIKE', "%{$keyword}%"],
+            ]];
         }
         if ($ou) {
-            $esc = $DB->escape($ou);
-            $where[] = new \QueryExpression("dn LIKE '%{$esc}%'");
+            $where['dn'] = ['LIKE', "%{$ou}%"];
         }
         $rows = $DB->request(['FROM' => self::TABLE, 'WHERE' => $where, 'LIMIT' => 2000]);
         return array_map(fn($r) => json_decode($r['raw_json'], true) ?: [], iterator_to_array($rows));
@@ -42,14 +43,14 @@ class PluginAdmanagerAdCache
         global $DB;
         $where = ['cache_type' => 'computer'];
         if ($keyword) {
-            $esc = $DB->escape($keyword);
-            $where[] = new \QueryExpression(
-                "(sam LIKE '%{$esc}%' OR dns_hostname LIKE '%{$esc}%' OR os LIKE '%{$esc}%')"
-            );
+            $where[] = ['OR' => [
+                'sam'            => ['LIKE', "%{$keyword}%"],
+                'dns_hostname'   => ['LIKE', "%{$keyword}%"],
+                'os'             => ['LIKE', "%{$keyword}%"],
+            ]];
         }
         if ($ou) {
-            $esc = $DB->escape($ou);
-            $where[] = new \QueryExpression("dn LIKE '%{$esc}%'");
+            $where['dn'] = ['LIKE', "%{$ou}%"];
         }
         $rows = $DB->request(['FROM' => self::TABLE, 'WHERE' => $where, 'LIMIT' => 3000]);
         return array_map(fn($r) => json_decode($r['raw_json'], true) ?: [], iterator_to_array($rows));
@@ -232,14 +233,16 @@ class PluginAdmanagerAdCache
     private static function writeLog(string $type, int $total, float $duration,
                                       string $by, string $status, string $err = ''): void {
         global $DB;
-        // error_msg 用 addslashes 处理单引号，防止 SQL 注入
-        $errSafe = addslashes(mb_substr($err, 0, 500));
-        $bySafe  = addslashes(mb_substr($by, 0, 128));
-        $DB->query(
-            "INSERT INTO `" . self::LOG_TABLE . "`
-             (`sync_type`,`total_count`,`duration_sec`,`triggered_by`,`synced_at`,`status`,`error_msg`)
-             VALUES ('{$type}', {$total}, {$duration}, '{$bySafe}', '" . date('Y-m-d H:i:s') . "', '{$status}', '{$errSafe}')"
-        );
+        // 使用 DB->insert() 而不是手动拼接 SQL，让 GLPI 自动处理转义
+        $DB->insert(self::LOG_TABLE, [
+            'sync_type'     => $type,
+            'total_count'   => $total,
+            'duration_sec'  => $duration,
+            'triggered_by'  => mb_substr($by, 0, 128),
+            'synced_at'     => date('Y-m-d H:i:s'),
+            'status'        => $status,
+            'error_msg'     => mb_substr($err, 0, 500),
+        ]);
     }
 }
 

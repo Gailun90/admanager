@@ -16,10 +16,10 @@
       <div class="d-flex justify-content-between align-items-start flex-wrap">
         <form method="get" class="d-flex align-items-end flex-nowrap gap-2">
           <div class="ad-search-input">
-            <input type="text" name="keyword" class="form-control form-control-sm" value="{{ keyword }}" placeholder="输入后回车搜索（账号/姓名/邮箱）...">
+            <input type="text" name="keyword" class="form-control form-control-sm" value="{{ keyword|e('html_attr') }}" placeholder="输入后回车搜索（账号/姓名/邮箱）...">
           </div>
           <div class="ad-search-input">
-            <input type="text" name="ou" class="form-control form-control-sm" id="searchOuInput" placeholder="过滤 OU（可选）" value="{{ ou }}">
+            <input type="text" name="ou" class="form-control form-control-sm" id="searchOuInput" placeholder="过滤 OU（可选）" value="{{ ou|e('html_attr') }}">
           </div>
           <div class="ad-search-btn">
             <button type="submit" name="search" class="btn btn-sm btn-primary"><i class="ti ti-search me-1"></i>搜索</button>
@@ -220,7 +220,7 @@
           {% for u in users %}
           <tr>
             <td>
-              <a href="?keyword={{ keyword }}&detail={{ u.samaccountname }}" class="fw-bold">{{ u.samaccountname }}</a>
+              <a href="?keyword={{ keyword|e('url') }}&detail={{ u.samaccountname|e('url') }}" class="fw-bold">{{ u.samaccountname }}</a>
             </td>
             <td>
               {{ u.displayname ?? '—' }}
@@ -252,7 +252,7 @@
                 {% if can_reset %}
                   <button class="btn btn-outline-danger btn-xs" title="重置密码" onclick="showReset('{{ u.dn }}','{{ u.displayname }}')"><i class="ti ti-key"></i></button>
                 {% endif %}
-                <a href="?keyword={{ keyword }}&detail={{ u.samaccountname }}" class="btn btn-outline-info btn-xs" title="详情"><i class="ti ti-eye"></i></a>
+                <a href="?keyword={{ keyword|e('url') }}&detail={{ u.samaccountname|e('url') }}" class="btn btn-outline-info btn-xs" title="详情"><i class="ti ti-eye"></i></a>
                 {% if can_create %}
                   <button class="btn btn-outline-primary btn-xs ad-action" data-action="import_to_glpi" data-dn="{{ u.dn }}" data-samaccountname="{{ u.samaccountname }}" data-name="{{ u.displayname }}" title="导入GLPI"><i class="ti ti-file-import"></i></button>
                 {% endif %}

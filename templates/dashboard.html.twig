@@ -135,8 +135,8 @@
       document.getElementById('taskPanel').innerHTML = th;
 
       // Sync panel
-      var sh = '<div class="row"><div class="col-6"><strong>AD\u540c\u6b65</strong>: '+(d.last_sync?d.last_sync.substring(0,16).replace('T',' '):'\u65e0')+'</div><div class="col-6"><strong>\u672c\u5468\u5ba1\u8ba1</strong>: '+(d.week_audit?d.week_audit.length:'0')+'\u6761</div></div>';
-      if(d.diff_count > 0) sh += '<div class="alert alert-warning py-1 mt-2 mb-0 small">\u26a0 '+d.diff_count+'\u53f0\u7ec8\u7aef\u5b58\u5728\u5dee\u5f02\uff0c<a href="?diff=1">\u524d\u5f80\u5904\u7406 &rarr;</a></div>';
+      var sh = '<div class="row"><div class="col-6"><strong>AD同步</strong>: '+(d.last_sync?esc(d.last_sync.substring(0,16).replace('T',' ')):'无')+'</div><div class="col-6"><strong>本周审计</strong>: '+(d.week_audit?d.week_audit.length:'0')+'条</div></div>';
+      if(d.diff_count > 0) sh += '<div class="alert alert-warning py-1 mt-2 mb-0 small">⚠ '+esc(d.diff_count)+'台终端存在差异，<a href="?diff=1">前往处理 &rarr;</a></div>';
       document.getElementById('syncPanel').innerHTML = sh;
     })
     .catch(function(){ document.getElementById('dashUpdated').textContent = '\u52a0\u8f7d\u5931\u8d25'; });

@@ -30,18 +30,34 @@ try {
         // 3. GLPI 本地 Computer 搜索
         if (in_array($source, ['all','glpi'])) {
             global $DB;
-            $esc = $DB->escape($keyword);
-            $sql = "SELECT c.id,c.name,c.serial,c.contact,c.comment,c.date_mod,
-                           m.name as manufacturer, cm.name as model, os.name as os_name
-                    FROM glpi_computers c
-                    LEFT JOIN glpi_manufacturers m ON c.manufacturers_id=m.id
-                    LEFT JOIN glpi_computermodels cm ON c.computermodels_id=cm.id
-                    LEFT JOIN glpi_items_operatingsystems ios ON ios.items_id=c.id AND ios.itemtype='Computer'
-                    LEFT JOIN glpi_operatingsystems os ON ios.operatingsystems_id=os.id
-                    WHERE (c.name LIKE '%{$esc}%' OR c.serial LIKE '%{$esc}%' OR c.contact LIKE '%{$esc}%')
-                      AND c.is_deleted=0 AND c.is_template=0
-                    ORDER BY c.date_mod DESC LIMIT 50";
-            $results['glpi_computers'] = iterator_to_array($DB->request($sql));
+            // 使用 GLPI DB 类的数组语法，自动防 SQL 注入
+            $results['glpi_computers'] = iterator_to_array($DB->request([
+                'SELECT' => [
+                    'c.id', 'c.name', 'c.serial', 'c.contact', 'c.comment', 'c.date_mod',
+                    'm.name AS manufacturer', 'cm.name AS model', 'os.name AS os_name'
+                ],
+                'FROM' => 'glpi_computers AS c',
+                'LEFT JOIN' => [
+                    'glpi_manufacturers AS m' => ['ON' => ['m.id' => 'c.manufacturers_id']],
+                    'glpi_computermodels AS cm' => ['ON' => ['cm.id' => 'c.computermodels_id']],
+                    'glpi_items_operatingsystems AS ios' => ['ON' => [
+                        'ios.items_id' => 'c.id',
+                        'ios.itemtype' => 'Computer'
+                    ]],
+                    'glpi_operatingsystems AS os' => ['ON' => ['os.id' => 'ios.operatingsystems_id']],
+                ],
+                'WHERE' => [
+                    'OR' => [
+                        'c.name'    => ['LIKE', "%{$keyword}%"],
+                        'c.serial'  => ['LIKE', "%{$keyword}%"],
+                        'c.contact' => ['LIKE', "%{$keyword}%"],
+                    ],
+                    'c.is_deleted' => 0,
+                    'c.is_template' => 0,
+                ],
+                'ORDER' => 'c.date_mod DESC',
+                'LIMIT' => 50,
+            ]));
         }
     }
 } catch (\Throwable $e) {

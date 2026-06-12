@@ -75,14 +75,14 @@ class PluginAdmanagerAuditLog extends CommonDBTM
         $where = ['1' => '1'];
         if (!empty($filters['action_type'])) $where['action_type'] = $filters['action_type'];
         if (!empty($filters['users_id']))    $where['users_id']    = (int)$filters['users_id'];
-        // 日期格式校验（防注入）
+        // 日期过滤 - 使用数组语法，让 GLPI 自动处理
         if (!empty($filters['date_from'])) {
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters['date_from']))
-                $where[] = new \QueryExpression("date_mod >= '" . $DB->escape($filters['date_from']) . "'");
+                $where[] = ['date_mod' => ['>=', $filters['date_from']]];
         }
         if (!empty($filters['date_to'])) {
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters['date_to']))
-                $where[] = new \QueryExpression("date_mod <= '" . $DB->escape($filters['date_to']) . " 23:59:59'");
+                $where[] = ['date_mod' => ['<=', $filters['date_to'] . ' 23:59:59']];
         }
 
         $rows = [];
@@ -114,7 +114,7 @@ class PluginAdmanagerAuditLog extends CommonDBTM
         foreach ($DB->request([
             'SELECT'  => ['action_type', 'COUNT' => ['id' => 'cnt'], 'SUM' => ['result' => 'success_cnt']],
             'FROM'    => self::$table,
-            'WHERE'   => [new \QueryExpression("date_mod >= '{$since}'")],
+            'WHERE'   => ['date_mod' => ['>=', $since]],
             'GROUPBY' => ['action_type'],
         ]) as $row) {
             $rows[] = $row;
