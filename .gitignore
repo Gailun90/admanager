@@ -1,2 +1,10 @@
 ﻿*.log
 .DS_Store
+
+certificates/*.pem
+certificates/**/*.pem
+certificates/**/*.0
+certificates/**/*.crt
+certificates/**/*.key
+certificates/**/*.p12
+certificates/**/*.pfx
